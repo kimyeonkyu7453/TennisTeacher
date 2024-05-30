@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./uploads:/app/uploads
+      - ./openpose:/app/openpose
+    environment:
+      UPLOADS_DIR: /app/uploads
+      OPENPOSE_DIR: /app/openpose
+    depends_on:
+      - python
+
+  python:
+    image: python:3.9-slim
+    volumes:
+      - ./openpose:/app/openpose
+    working_dir: /app/openpose
+    command: tail -f /dev/null

@@ -51,7 +51,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (xhr.status === 200) {
                 const response = JSON.parse(xhr.responseText);
                 alert('업로드가 완료되었습니다.');
-                localStorage.setItem('filePath', response.filePath);
+                selectedVideoPath = response.filePath;  // 업로드된 파일 경로 저장
                 loadVideoOptions();
             } else {
                 alert('업로드 중 오류가 발생했습니다.');
@@ -155,5 +155,4 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('checkResultButton').addEventListener('click', function() {
         window.location.href = '/result.html';
     });
-    
 });

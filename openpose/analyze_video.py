@@ -1,12 +1,17 @@
+import os
 import cv2
 import pandas as pd
 import numpy as np
 import math
-import os
 import joblib
 import sys
 import json
 import shutil
+
+# Ensure the public directory exists
+public_dir = "/app/public"
+if not os.path.exists(public_dir):
+    os.makedirs(public_dir, mode=0o777)
 
 def combine_files(input_pattern='segment_*', output_path='pose_iter_160000.caffemodel'):
     import glob
@@ -19,7 +24,7 @@ def combine_files(input_pattern='segment_*', output_path='pose_iter_160000.caffe
     os.chmod(output_path, 0o777)  # 파일 권한 설정
 
 # 분할된 파일 결합
-combine_files(input_pattern='/front/openpose/pose_lib/segment_*', output_path='/front/openpose/pose_lib/pose_iter_160000.caffemodel')
+combine_files(input_pattern='/app/openpose/pose_lib/segment_*', output_path='/app/openpose/pose_lib/pose_iter_160000.caffemodel')
 
 # MPII에서 각 파트 번호, 선으로 연결될 POSE_PAIRS
 BODY_PARTS = {"Head": 0, "Neck": 1, "RShoulder": 2, "RElbow": 3, "RWrist": 4,
@@ -52,13 +57,9 @@ part_names_korean = {
 }
 
 # 경로 수정 (Linux 경로 사용)
-pose_lib_path = "/front/openpose/pose_lib/"
+pose_lib_path = "/app/openpose/pose_lib/"
 prototxt_path = os.path.join(pose_lib_path, "pose_deploy_linevec.prototxt")
 caffemodel_path = os.path.join(pose_lib_path, "pose_iter_160000.caffemodel")
-
-# 모델 파일 권한 설정
-os.chmod(prototxt_path, 0o777)
-os.chmod(caffemodel_path, 0o777)
 
 net = cv2.dnn.readNetFromCaffe(prototxt_path, caffemodel_path)
 
@@ -122,6 +123,8 @@ def analyze_frame(image):
             angles.append([partFrom, partTo, angle])
 
     df_angles = pd.DataFrame(angles, columns=["From", "To", "Angle"])
+    if df_angles.empty:
+        return image, None
     df_angles['From_encoded'] = label_encoder_from.transform(df_angles['From'])
     df_angles['To_encoded'] = label_encoder_to.transform(df_angles['To'])
 
@@ -131,6 +134,11 @@ def analyze_frame(image):
     return image, df_angles
 
 def process_video(video_path):
+    # 파일 존재 여부 확인
+    if not os.path.exists(video_path):
+        print(f"Error: video file does not exist: {video_path}")
+        return None, None
+
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
         print(f"Error opening video file: {video_path}")
@@ -159,16 +167,22 @@ def process_video(video_path):
 
     if impact_frame is not None:
         result_image, result_df = analyze_frame(impact_frame)
-        return result_image, result_df
+        if result_df is not None and 'IsCorrect' in result_df.columns:
+            print(result_df.head())  # 데이터프레임 내용 출력
+            return result_image, result_df
+        else:
+            print("result_df가 제대로 생성되지 않았거나 IsCorrect 열이 존재하지 않습니다.")
+            return None, None
     else:
+        print("임팩트 지점 프레임을 추출하지 못했습니다.")
         return None, None
 
-def save_results_to_json(df_angles, output_path="/front/openpose/result.json"):
+def save_results_to_json(df_angles, output_path="/app/openpose/result.json"):
     results = df_angles.to_dict(orient='records')
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(results, f, ensure_ascii=False, indent=4)
 
-def save_results_to_html(image, df_angles, output_path="/front/openpose/result.html"):
+def save_results_to_html(image, df_angles, output_path="/app/openpose/result.html"):
     import base64
     from io import BytesIO
     from PIL import Image
@@ -224,83 +238,84 @@ video_path = sys.argv[1]
 result_image, result_df = process_video(video_path)
 
 if result_image is not None and result_df is not None:
-    save_results_to_json(result_df, output_path="/front/openpose/result.json")
-    save_results_to_html(result_image, result_df, output_path="/front/openpose/result.html")
+    save_results_to_json(result_df, output_path="/app/openpose/result.json")
+    save_results_to_html(result_image, result_df, output_path="/app/openpose/result.html")
     print("분석 결과가 result.json 및 result.html 파일에 저장되었습니다.")
-    shutil.copy("/front/openpose/result.html", "/front/public/result.html")
+    shutil.copyfile("/app/openpose/result.html", "/app/public/result.html")
+    os.chmod("/app/public/result.html", 0o777)
 else:
     print("임팩트 지점 프레임을 추출하지 못했습니다.")
 
-incorrect_poses = result_df[result_df['IsCorrect'] == 0]
-if not incorrect_poses.empty:
-    print("잘못된 자세:")
-    for index, row in incorrect_poses.iterrows():
-        from_part_korean = part_names_korean[row['From']]
-        to_part_korean = part_names_korean[row['To']]
-        current_angle = row['Angle']
+if result_df is not None:
+    incorrect_poses = result_df[result_df['IsCorrect'] == 0]
+    if not incorrect_poses.empty:
+        print("잘못된 자세:")
+        for index, row in incorrect_poses.iterrows():
+            from_part_korean = part_names_korean[row['From']]
+            to_part_korean = part_names_korean[row['To']]
+            current_angle = row['Angle']
 
-        if row['From'] == "Chest" and row['To'] == "LHip":
-            mean_angle = 77.886546
-            if current_angle < mean_angle:
-                print(f"허리를 좀 더 숙이시오.")
-            else:
-                print(f"허리를 좀 더 피시오.")
+            if row['From'] == "Chest" and row['To'] == "LHip":
+                mean_angle = 77.886546
+                if current_angle < mean_angle:
+                    print(f"허리를 좀 더 숙이시오.")
+                else:
+                    print(f"허리를 좀 더 피시오.")
 
-        elif row['From'] == "Chest" and row['To'] == "RHip":
-            mean_angle = 99.894308
-            if current_angle < mean_angle:
-                print(f"허리를 좀 더 숙이시오.")
-            else:
-                print(f"허리를 좀 더 피시오.")
+            elif row['From'] == "Chest" and row['To'] == "RHip":
+                mean_angle = 99.894308
+                if current_angle < mean_angle:
+                    print(f"허리를 좀 더 숙이시오.")
+                else:
+                    print(f"허리를 좀 더 피시오.")
 
-        elif row['From'] == "LHip" and row['To'] == "LKnee":
-            mean_angle = 75.916891
-            if current_angle < mean_angle:
-                print(f"왼쪽 무릎을 좀 더 피시오.")
-            else:
-                print(f" 왼쪽 무릎을 좀 더 구부리시오.")
+            elif row['From'] == "LHip" and row['To'] == "LKnee":
+                mean_angle = 75.916891
+                if current_angle < mean_angle:
+                    print(f"왼쪽 무릎을 좀 더 피시오.")
+                else:
+                    print(f" 왼쪽 무릎을 좀 더 구부리시오.")
 
-        elif row['From'] == "LKnee" and row['To'] == "LAnkle":
-            mean_angle = 104.983467
-            if current_angle < mean_angle:
-                print(f"왼쪽 무릎을 좀 더 구부리시오.")
-            else:
-                print(f"왼쪽 무릎을 좀 더 피시오.")
+            elif row['From'] == "LKnee" and row['To'] == "LAnkle":
+                mean_angle = 104.983467
+                if current_angle < mean_angle:
+                    print(f"왼쪽 무릎을 좀 더 구부리시오.")
+                else:
+                    print(f"왼쪽 무릎을 좀 더 피시오.")
 
-        elif row['From'] == "Neck" and row['To'] == "RShoulder":
-            mean_angle = 115.946267
-            if current_angle < mean_angle:
-                print(f"오른쪽 어깨를 좀 더 피시오.")
-            else:
-                print(f"오른쪽 어깨를 좀 더 접으시오.")
+            elif row['From'] == "Neck" and row['To'] == "RShoulder":
+                mean_angle = 115.946267
+                if current_angle < mean_angle:
+                    print(f"오른쪽 어깨를 좀 더 피시오.")
+                else:
+                    print(f"오른쪽 어깨를 좀 더 접으시오.")
 
-        elif row['From'] == "RElbow" and row['To'] == "RWrist":
-            mean_angle = 13.692950
-            if current_angle < mean_angle:
-                print(f"오른쪽 손목을 좀 더 내리십시오.")
-            else:
-                print(f"오른쪽 손목을 좀 더 올리십시오.")
+            elif row['From'] == "RElbow" and row['To'] == "RWrist":
+                mean_angle = 13.692950
+                if current_angle < mean_angle:
+                    print(f"오른쪽 손목을 좀 더 내리십시오.")
+                else:
+                    print(f"오른쪽 손목을 좀 더 올리십시오.")
 
-        elif row['From'] == "RHip" and row['To'] == "RKnee":
-            mean_angle = 94.449991
-            if current_angle < mean_angle:
-                print(f"오른쪽 무릎을 좀 더 피시오.")
-            else:
-                print(f"오른쪽 무릎을 좀 더 구부리시오.")
+            elif row['From'] == "RHip" and row['To'] == "RKnee":
+                mean_angle = 94.449991
+                if current_angle < mean_angle:
+                    print(f"오른쪽 무릎을 좀 더 피시오.")
+                else:
+                    print(f"오른쪽 무릎을 좀 더 구부리시오.")
 
-        elif row['From'] == "RKnee" and row['To'] == "RAnkle":
-            mean_angle = 124.503426
-            if current_angle < mean_angle:
-                print(f"오른쪽 무릎을 좀 더 구부리시오.")
-            else:
-                print(f"오른쪽 무릎을 좀 더 피시오.")
+            elif row['From'] == "RKnee" and row['To'] == "RAnkle":
+                mean_angle = 124.503426
+                if current_angle < mean_angle:
+                    print(f"오른쪽 무릎을 좀 더 구부리시오.")
+                else:
+                    print(f"오른쪽 무릎을 좀 더 피시오.")
 
-        elif row['From'] == "RShoulder" and row['To'] == "RElbow":
-            mean_angle = 52.455323
-            if current_angle < mean_angle:
-                print(f"오른쪽 팔을 좀 더 뒤로 당기십시오.")
-            else:
-                print(f"오른쪽 팔을 좀 더 앞으로 당기십시오.")
-else:
-    print("자세가 완벽합니다!")
-
+            elif row['From'] == "RShoulder" and row['To'] == "RElbow":
+                mean_angle = 52.455323
+                if current_angle < mean_angle:
+                    print(f"오른쪽 팔을 좀 더 뒤로 당기십시오.")
+                else:
+                    print(f"오른쪽 팔을 좀 더 앞으로 당기십시오.")
+    else:
+        print("자세가 완벽합니다!")

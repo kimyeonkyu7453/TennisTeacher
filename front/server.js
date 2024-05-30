@@ -8,8 +8,8 @@ const app = express();
 
 // 환경 변수 설정
 const port = process.env.PORT || 8080;
-const uploadsDir = path.join(__dirname, process.env.UPLOADS_DIR || 'uploads');
-const openposeDir = path.join(__dirname, process.env.OPENPOSE_DIR || 'openpose');
+const uploadsDir = process.env.UPLOADS_DIR || '/app/uploads';
+const openposeDir = process.env.OPENPOSE_DIR || '/app/openpose';
 
 let analysisResult = {}; // 분석 결과를 저장할 객체 초기화
 
@@ -28,7 +28,7 @@ const upload = multer({ storage: storage });
 app.use(cors());
 app.use(express.json());
 app.use(express.static(uploadsDir));
-app.use(express.static('public'));
+app.use(express.static('/app/public'));
 
 // 업로드 처리
 app.post('/upload', upload.single('video'), (req, res) => {
@@ -39,9 +39,9 @@ app.post('/upload', upload.single('video'), (req, res) => {
     console.log('File uploaded:', req.file.filename);
 
     // 파일 권한 설정
-    fs.chmodSync(req.file.path, 0o644);
+    fs.chmodSync(req.file.path, 0o777);  // 모든 사용자에게 읽기/쓰기 권한 부여
 
-    res.json({ filePath: `/${uploadsDir}/${req.file.filename}`, fileName: req.file.originalname });
+    res.json({ filePath: `${uploadsDir}/${req.file.filename}`, fileName: req.file.originalname });
 });
 
 // 비디오 목록 가져오기
@@ -54,7 +54,7 @@ app.get('/videos', (req, res) => {
         }
         const videos = files.map(file => ({
             name: file,
-            path: `/${uploadsDir}/${file}`
+            path: `${uploadsDir}/${file}`
         }));
         res.json(videos);
     });

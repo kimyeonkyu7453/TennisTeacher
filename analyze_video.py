@@ -1,12 +1,17 @@
+import os
 import cv2
 import pandas as pd
 import numpy as np
 import math
-import os
 import joblib
 import sys
 import json
 import shutil
+
+# Ensure the public directory exists
+public_dir = "/app/public"
+if not os.path.exists(public_dir):
+    os.makedirs(public_dir, mode=0o777)
 
 def combine_files(input_pattern='segment_*', output_path='pose_iter_160000.caffemodel'):
     import glob
@@ -19,7 +24,7 @@ def combine_files(input_pattern='segment_*', output_path='pose_iter_160000.caffe
     os.chmod(output_path, 0o777)  # 파일 권한 설정
 
 # 분할된 파일 결합
-combine_files(input_pattern='/front/openpose/pose_lib/segment_*', output_path='/front/openpose/pose_lib/pose_iter_160000.caffemodel')
+combine_files(input_pattern='/app/openpose/pose_lib/segment_*', output_path='/app/openpose/pose_lib/pose_iter_160000.caffemodel')
 
 # MPII에서 각 파트 번호, 선으로 연결될 POSE_PAIRS
 BODY_PARTS = {"Head": 0, "Neck": 1, "RShoulder": 2, "RElbow": 3, "RWrist": 4,
@@ -52,13 +57,9 @@ part_names_korean = {
 }
 
 # 경로 수정 (Linux 경로 사용)
-pose_lib_path = "/front/openpose/pose_lib/"
+pose_lib_path = "/app/openpose/pose_lib/"
 prototxt_path = os.path.join(pose_lib_path, "pose_deploy_linevec.prototxt")
 caffemodel_path = os.path.join(pose_lib_path, "pose_iter_160000.caffemodel")
-
-# 모델 파일 권한 설정
-os.chmod(prototxt_path, 0o777)
-os.chmod(caffemodel_path, 0o777)
 
 net = cv2.dnn.readNetFromCaffe(prototxt_path, caffemodel_path)
 
@@ -176,12 +177,12 @@ def process_video(video_path):
         print("임팩트 지점 프레임을 추출하지 못했습니다.")
         return None, None
 
-def save_results_to_json(df_angles, output_path="/front/openpose/result.json"):
+def save_results_to_json(df_angles, output_path="/app/openpose/result.json"):
     results = df_angles.to_dict(orient='records')
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(results, f, ensure_ascii=False, indent=4)
 
-def save_results_to_html(image, df_angles, output_path="/front/openpose/result.html"):
+def save_results_to_html(image, df_angles, output_path="/app/openpose/result.html"):
     import base64
     from io import BytesIO
     from PIL import Image
@@ -237,10 +238,11 @@ video_path = sys.argv[1]
 result_image, result_df = process_video(video_path)
 
 if result_image is not None and result_df is not None:
-    save_results_to_json(result_df, output_path="/front/openpose/result.json")
-    save_results_to_html(result_image, result_df, output_path="/front/openpose/result.html")
+    save_results_to_json(result_df, output_path="/app/openpose/result.json")
+    save_results_to_html(result_image, result_df, output_path="/app/openpose/result.html")
     print("분석 결과가 result.json 및 result.html 파일에 저장되었습니다.")
-    shutil.copy("/front/openpose/result.html", "/front/public/result.html")
+    shutil.copyfile("/app/openpose/result.html", "/app/public/result.html")
+    os.chmod("/app/public/result.html", 0o777)
 else:
     print("임팩트 지점 프레임을 추출하지 못했습니다.")
 
