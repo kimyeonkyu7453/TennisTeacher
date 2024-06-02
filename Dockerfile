@@ -27,7 +27,7 @@ RUN npm install -g npm@latest
 
 # Python 패키지 설치
 RUN pip3 install --upgrade pip && \
-    pip3 install opencv-python-headless pandas numpy joblib scikit-learn==1.4.2 Pillow matplotlib jinja2
+    pip3 install opencv-python-headless pandas numpy joblib scikit-learn==1.4.2 Pillow matplotlib jinja2 progressbar
 
 # 앱의 종속성 설치
 COPY package*.json ./
