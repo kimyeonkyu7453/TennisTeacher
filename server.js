@@ -42,17 +42,7 @@ app.post('/upload', upload.single('video'), (req, res) => {
     // 파일 권한 설정
     fs.chmodSync(req.file.path, 0o777);  // 모든 사용자에게 읽기/쓰기 권한 부여
 
-    // 해상도 낮추기 스크립트 실행
-    const inputFilePath = path.join(uploadsDir, req.file.filename);
-    const outputFilePath = path.join(uploadsDir, 'resized_' + req.file.filename);
-    exec(`python3 resize_video.py "${inputFilePath}" "${outputFilePath}"`, (error, stdout, stderr) => {
-        if (error) {
-            console.error(`Error resizing video: ${error.message}`);
-            return res.status(500).send('Error resizing video.');
-        }
-        console.log('Video resized:', outputFilePath);
-        res.json({ filePath: outputFilePath, fileName: req.file.originalname });
-    });
+    res.json({ filePath: `${uploadsDir}/${req.file.filename}`, fileName: req.file.originalname });
 });
 
 // 비디오 목록 가져오기
