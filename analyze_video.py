@@ -223,7 +223,7 @@ def save_results_to_html(image, df_angles, feedback_list, output_path="/app/open
                                       counterclock=False, wedgeprops=dict(width=0.3, edgecolor='white'), autopct='%1.1f%%')
     plt.setp(autotexts, size=12, weight="bold", color="white")
     ax.text(0, 0, f"{total_score:.2f}/100", ha='center', va='center', fontsize=20, color='black')
-    plt.savefig('/app/openpose/score_chart.png', bbox_inches='tight', pad_inches=0.1, dpi=100)
+    plt.savefig('/app/openpose/score_chart.png', bbox_inches='tight', pad_inches=0.1, dpi=200)
     plt.close(fig)
 
     with open('/app/openpose/score_chart.png', 'rb') as image_file:
@@ -232,6 +232,7 @@ def save_results_to_html(image, df_angles, feedback_list, output_path="/app/open
     html_template = """
     <html>
     <head>
+        <meta charset="UTF-8">
         <title>자세 분석 결과</title>
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
         <style>
@@ -254,8 +255,8 @@ def save_results_to_html(image, df_angles, feedback_list, output_path="/app/open
             <h1 class="my-4">자세 분석 결과</h1>
             <div class="score">{{ current_date }}</div>
             <div class="row">
-                <div class="column"><img src="data:image/jpeg;base64,{{ img_str }}" alt="Analyzed Frame" class="img-fluid" id="analyzedFrame"/></div>
-                <div class="column"><img src="data:image/png;base64,{{ img_base64 }}" alt="Score Chart" class="img-fluid" id="scoreChart"/></div>
+                <div class="column"><img src="data:image/jpeg;base64,{{ img_str }}" alt="Analyzed Frame" class="img-fluid"/></div>
+                <div class="column"><img src="data:image/png;base64,{{ img_base64 }}" alt="Score Chart" class="img-fluid" /></div>
             </div>
             <table class="table table-bordered">
                 <thead>
@@ -293,20 +294,9 @@ def save_results_to_html(image, df_angles, feedback_list, output_path="/app/open
 
         <script>
             function saveResults() {
-                const canvas = document.createElement('canvas');
-                const context = canvas.getContext('2d');
-                const analyzedFrame = document.getElementById('analyzedFrame');
-                const scoreChart = document.getElementById('scoreChart');
-                
-                canvas.width = analyzedFrame.width + scoreChart.width;
-                canvas.height = Math.max(analyzedFrame.height, scoreChart.height);
-                
-                context.drawImage(analyzedFrame, 0, 0);
-                context.drawImage(scoreChart, analyzedFrame.width, 0);
-                
                 const link = document.createElement('a');
-                link.href = canvas.toDataURL('image/png');
-                link.download = 'result.png';
+                link.href = '/result.html';
+                link.download = 'result.html';
                 link.click();
             }
         </script>
