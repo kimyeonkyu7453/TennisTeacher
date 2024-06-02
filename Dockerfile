@@ -16,9 +16,9 @@ RUN groupadd -g "${GID}" python \
 # 작업 디렉토리 설정
 WORKDIR /app
 
-# Node.js 18.x 설치
+# Node.js 18.x 및 ffmpeg 설치
 RUN apt-get update && \
-    apt-get install -y python3-pip python3-dev cmake build-essential curl && \
+    apt-get install -y python3-pip python3-dev cmake build-essential curl ffmpeg && \
     curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
     apt-get install -y nodejs
 
@@ -43,6 +43,9 @@ RUN mkdir -p /app/uploads && chmod -R 777 /app/uploads
 RUN mkdir -p /app/openpose/pose_lib && chmod -R 777 /app/openpose
 COPY analyze_video.py /app/openpose/analyze_video.py
 COPY openpose/pose_lib /app/openpose/pose_lib/
+
+# resize_video.py 파일 복사
+COPY resize_video.py /app/openpose/resize_video.py
 
 # public 디렉토리 복사 및 권한 설정
 COPY public /app/public/
