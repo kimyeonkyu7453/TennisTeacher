@@ -12,6 +12,7 @@ const uploadsDir = process.env.UPLOADS_DIR || '/app/uploads';
 const openposeDir = process.env.OPENPOSE_DIR || '/app/openpose';
 
 let analysisResult = {}; // 분석 결과를 저장할 객체 초기화
+let analysisProgress = 0; // 분석 진행률 초기화
 
 // 업로드 스토리지 설정
 const storage = multer.diskStorage({
@@ -60,6 +61,11 @@ app.get('/videos', (req, res) => {
     });
 });
 
+// 분석 진행률 가져오기
+app.get('/get-analysis-progress', (req, res) => {
+    res.json({ progress: analysisProgress });
+});
+
 // 비디오 분석
 app.post('/analyze', (req, res) => {
     console.log('POST /analyze 요청 수신:', req.body.filePath);
@@ -67,15 +73,38 @@ app.post('/analyze', (req, res) => {
     console.log(`Analyzing file: ${filePath}`);
 
     analysisResult = {};
+    analysisProgress = 0; // 분석 진행률 초기화
 
     const analyzeScript = path.join(openposeDir, 'analyze_video.py');
-    exec(`python3 ${analyzeScript} ${filePath}`, (error, stdout, stderr) => {
-        if (error) {
-            console.error(`exec error: ${error}`);
-            return res.status(500).json({ error: '분석 중 오류 발생', details: error.message });
+    const analyzeProcess = exec(`python3 ${analyzeScript} ${filePath}`);
+
+    // 진행률을 주기적으로 업데이트하는 함수
+    const updateProgress = setInterval(() => {
+        analysisProgress += 10;
+        if (analysisProgress >= 100) {
+            clearInterval(updateProgress);
         }
-        console.log(`stdout: ${stdout}`);
-        console.log(`stderr: ${stderr}`);
+    }, 1000);
+
+    analyzeProcess.stdout.on('data', (data) => {
+        console.log(`stdout: ${data}`);
+        // 데이터에서 진행률을 추출하여 업데이트 (예: "Progress: 50%")
+        const progressMatch = data.match(/Progress: (\d+)%/);
+        if (progressMatch) {
+            analysisProgress = parseInt(progressMatch[1]);
+        }
+    });
+
+    analyzeProcess.stderr.on('data', (data) => {
+        console.error(`stderr: ${data}`);
+    });
+
+    analyzeProcess.on('close', (code) => {
+        clearInterval(updateProgress);
+        if (code !== 0) {
+            console.error(`analyze process exited with code ${code}`);
+            return res.status(500).json({ error: '분석 중 오류 발생' });
+        }
 
         const resultPath = path.join(openposeDir, 'result.json');
         fs.readFile(resultPath, 'utf8', (err, data) => {
@@ -85,6 +114,7 @@ app.post('/analyze', (req, res) => {
             }
             analysisResult = JSON.parse(data);
             res.json({ message: '분석 완료', result: analysisResult });
+            analysisProgress = 100; // 분석 완료 시 진행률 100%로 설정
         });
     });
 });

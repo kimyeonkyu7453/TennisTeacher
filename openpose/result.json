@@ -10,7 +10,7 @@
     {
         "From": "Neck",
         "To": "RShoulder",
-        "Angle": 180.0,
+        "Angle": 146.30993247402023,
         "From_encoded": 6,
         "To_encoded": 12,
         "IsCorrect": 1
@@ -18,7 +18,7 @@
     {
         "From": "RShoulder",
         "To": "RElbow",
-        "Angle": 153.434948822922,
+        "Angle": 134.09061955080085,
         "From_encoded": 10,
         "To_encoded": 9,
         "IsCorrect": 1
@@ -42,7 +42,7 @@
     {
         "From": "LShoulder",
         "To": "LElbow",
-        "Angle": 33.690067525979785,
+        "Angle": 27.299572211332805,
         "From_encoded": 5,
         "To_encoded": 2,
         "IsCorrect": 1
@@ -50,7 +50,7 @@
     {
         "From": "LElbow",
         "To": "LWrist",
-        "Angle": 153.434948822922,
+        "Angle": -26.56505117707799,
         "From_encoded": 2,
         "To_encoded": 6,
         "IsCorrect": 1
@@ -58,7 +58,7 @@
     {
         "From": "Neck",
         "To": "Chest",
-        "Angle": 90.0,
+        "Angle": 81.86989764584403,
         "From_encoded": 6,
         "To_encoded": 0,
         "IsCorrect": 1
@@ -66,7 +66,7 @@
     {
         "From": "Chest",
         "To": "RHip",
-        "Angle": 104.4702941000659,
+        "Angle": 101.59217541029108,
         "From_encoded": 0,
         "To_encoded": 10,
         "IsCorrect": 1
@@ -74,15 +74,15 @@
     {
         "From": "RHip",
         "To": "RKnee",
-        "Angle": 120.96375653207352,
+        "Angle": 104.03624346792648,
         "From_encoded": 8,
         "To_encoded": 11,
-        "IsCorrect": 0
+        "IsCorrect": 1
     },
     {
         "From": "RKnee",
         "To": "RAnkle",
-        "Angle": 108.43494882292202,
+        "Angle": 115.60218755144177,
         "From_encoded": 9,
         "To_encoded": 8,
         "IsCorrect": 1
@@ -90,7 +90,7 @@
     {
         "From": "Chest",
         "To": "LHip",
-        "Angle": 62.7004277886672,
+        "Angle": 67.69379494509236,
         "From_encoded": 0,
         "To_encoded": 3,
         "IsCorrect": 1
@@ -98,15 +98,15 @@
     {
         "From": "LHip",
         "To": "LKnee",
-        "Angle": 53.13010235415598,
+        "Angle": 67.67134362198085,
         "From_encoded": 3,
         "To_encoded": 4,
-        "IsCorrect": 0
+        "IsCorrect": 1
     },
     {
         "From": "LKnee",
         "To": "LAnkle",
-        "Angle": 81.86989764584403,
+        "Angle": 82.76307797403199,
         "From_encoded": 4,
         "To_encoded": 1,
         "IsCorrect": 1

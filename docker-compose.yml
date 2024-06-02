@@ -8,9 +8,10 @@ services:
     volumes:
       - ./uploads:/app/uploads
       - ./openpose:/app/openpose
+      - ./public:/app/public
     environment:
-      UPLOADS_DIR: /app/uploads
-      OPENPOSE_DIR: /app/openpose
+      - UPLOADS_DIR=/app/uploads
+      - OPENPOSE_DIR=/app/openpose
     depends_on:
       - python
 

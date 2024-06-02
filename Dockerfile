@@ -14,7 +14,7 @@ RUN groupadd -g "${GID}" python \
   && useradd --create-home --no-log-init -u "${UID}" -g "${GID}" python
 
 # 작업 디렉토리 설정
-WORKDIR /home/python
+WORKDIR /app
 
 # Node.js 18.x 설치
 RUN apt-get update && \
@@ -27,7 +27,7 @@ RUN npm install -g npm@latest
 
 # Python 패키지 설치
 RUN pip3 install --upgrade pip && \
-    pip3 install opencv-python-headless pandas numpy joblib scikit-learn Pillow
+    pip3 install opencv-python-headless pandas numpy joblib scikit-learn==1.4.2 Pillow matplotlib jinja2
 
 # 앱의 종속성 설치
 COPY package*.json ./
@@ -58,4 +58,4 @@ ENV PATH="/home/python/.local/bin:${PATH}"
 EXPOSE 8080
 
 # 서버 실행
-CMD ["node", "server.js"]
+CMD ["node", "/app/server.js"]
