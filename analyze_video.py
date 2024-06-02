@@ -202,6 +202,7 @@ def calculate_scores(df_angles):
     df_angles['Score'] = scores
     total_score = sum(scores) / len(scores)
     return total_score
+
 def save_results_to_html(image, df_angles, feedback_list, output_path="/app/openpose/result.html"):
     import base64
     from io import BytesIO
@@ -240,12 +241,20 @@ def save_results_to_html(image, df_angles, feedback_list, output_path="/app/open
             .date { text-align: center; font-size: 20px; margin-top: 20px; }
             h1 { font-size: 36px; font-weight: bold; text-align: center; margin-bottom: 20px; }
             .score { font-size: 24px; font-weight: bold; text-align: center; margin-bottom: 20px; }
-            .row { display: flex; justify-content: space-around; align-items: center; }
-            .column { flex: 1; text-align: center; }
-            table { font-weight: bold; }
+            .row { display: flex; justify-content: space-around; align-items: center; flex-wrap: wrap; }
+            .column { flex: 1; text-align: center; margin-bottom: 20px; }
+            table { font-weight: bold; width: 100%; }
             button { margin-top: 20px; }
             .btn-primary { background-color: #007bff; }
             .btn-success { background-color: #007bff; }
+            @media (max-width: 767px) {
+                h1 { font-size: 24px; }
+                .date { font-size: 16px; }
+                .score { font-size: 20px; }
+                .feedback { font-size: 14px; }
+                .row { flex-direction: column; }
+                .column { width: 100%; }
+            }
         </style>
     </head>
     <body>
