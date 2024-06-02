@@ -254,8 +254,8 @@ def save_results_to_html(image, df_angles, feedback_list, output_path="/app/open
             <h1 class="my-4">자세 분석 결과</h1>
             <div class="score">{{ current_date }}</div>
             <div class="row">
-                <div class="column"><img src="data:image/jpeg;base64,{{ img_str }}" alt="Analyzed Frame" class="img-fluid" id="analyzedFrame"/></div>
-                <div class="column"><img src="data:image/png;base64,{{ img_base64 }}" alt="Score Chart" class="img-fluid" id="scoreChart"/></div>
+                <div class="column"><img src="data:image/jpeg;base64,{{ img_str }}" alt="Analyzed Frame" class="img-fluid"/></div>
+                <div class="column"><img src="data:image/png;base64,{{ img_base64 }}" alt="Score Chart" class="img-fluid" /></div>
             </div>
             <table class="table table-bordered">
                 <thead>
@@ -293,20 +293,9 @@ def save_results_to_html(image, df_angles, feedback_list, output_path="/app/open
 
         <script>
             function saveResults() {
-                const canvas = document.createElement('canvas');
-                const context = canvas.getContext('2d');
-                const analyzedFrame = document.getElementById('analyzedFrame');
-                const scoreChart = document.getElementById('scoreChart');
-                
-                canvas.width = analyzedFrame.width + scoreChart.width;
-                canvas.height = Math.max(analyzedFrame.height, scoreChart.height);
-                
-                context.drawImage(analyzedFrame, 0, 0);
-                context.drawImage(scoreChart, analyzedFrame.width, 0);
-                
                 const link = document.createElement('a');
-                link.href = canvas.toDataURL('image/png');
-                link.download = 'result.png';
+                link.href = '/result.html';
+                link.download = 'result.html';
                 link.click();
             }
         </script>
@@ -322,7 +311,6 @@ def save_results_to_html(image, df_angles, feedback_list, output_path="/app/open
         f.write(html_content)
         
     shutil.move(temp_output_path, output_path)
-
 
 video_path = sys.argv[1]
 result_image, result_df = process_video(video_path)
