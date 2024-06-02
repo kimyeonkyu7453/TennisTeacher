@@ -42,17 +42,16 @@ app.post('/upload', upload.single('video'), (req, res) => {
     // 파일 권한 설정
     fs.chmodSync(req.file.path, 0o777);  // 모든 사용자에게 읽기/쓰기 권한 부여
 
-    // 비디오 해상도 낮추기
-    const inputPath = req.file.path;
-    const outputPath = path.join(uploadsDir, `compressed_${req.file.filename}`);
-    exec(`ffmpeg -i ${inputPath} -vf scale=320:-1 -c:v libx264 -preset fast -crf 28 ${outputPath}`, (err, stdout, stderr) => {
-        if (err) {
-            console.error('Error compressing video:', err);
-            return res.status(500).json({ error: 'Error compressing video' });
+    // 해상도 낮추기 스크립트 실행
+    const inputFilePath = path.join(uploadsDir, req.file.filename);
+    const outputFilePath = path.join(uploadsDir, 'resized_' + req.file.filename);
+    exec(`python3 resize_video.py "${inputFilePath}" "${outputFilePath}"`, (error, stdout, stderr) => {
+        if (error) {
+            console.error(`Error resizing video: ${error.message}`);
+            return res.status(500).send('Error resizing video.');
         }
-        fs.unlinkSync(inputPath);  // 원본 파일 삭제
-        fs.chmodSync(outputPath, 0o777);  // 압축된 파일에 권한 설정
-        res.json({ filePath: outputPath, fileName: req.file.originalname });
+        console.log('Video resized:', outputFilePath);
+        res.json({ filePath: outputFilePath, fileName: req.file.originalname });
     });
 });
 
