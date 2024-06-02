@@ -2,7 +2,7 @@ import sys
 import cv2
 import os
 
-def resize_video(input_path, output_path, width=160, height=120, bitrate=500):
+def resize_video(input_path, output_path, width=640, height=480, bitrate=1000):
     cap = cv2.VideoCapture(input_path)
     
     if not cap.isOpened():
