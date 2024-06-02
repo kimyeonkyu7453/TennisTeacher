@@ -368,7 +368,7 @@ if result_image is not None and result_df is not None:
 
             elif row['From'] == "Chest" and row['To'] == "RHip":
                 mean_angle = 99.894308
-                if current_angle < mean_angle):
+                if current_angle < mean_angle:
                     feedback_list.append(f"허리를 좀 더 숙이시오.")
                 else:
                     feedback_list.append(f"허리를 좀 더 피시오.")
