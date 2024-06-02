@@ -79,21 +79,10 @@ model_path = os.path.join(pose_lib_path, 'tennis_pose_model.pkl')
 model = joblib.load(model_path)
 
 def is_perpendicular(p1, p2, p3, p4):
-    """
-    Checks if the lines formed by (p1, p2) and (p3, p4) are perpendicular.
-    Assuming p14 as the origin, checks if p1 is perpendicular to the line p3-p4.
-    """
-    # Calculate vectors representing the lines
     vec_p1p2 = np.array(p1) - np.array(p2)
     vec_p3p4 = np.array(p3) - np.array(p4)
-    
-    # Calculate angle between the two vectors
     angle = np.arccos(np.dot(vec_p1p2, vec_p3p4) / (np.linalg.norm(vec_p1p2) * np.linalg.norm(vec_p3p4)))
-    
-    # Convert angle to degrees
     angle_deg = np.degrees(angle)
-    
-    # Check if the angle is within the specified range for perpendicular lines
     return 30 <= angle_deg <= 50 or 310 <= angle_deg <= 330
 
 def analyze_frame(image):
@@ -159,7 +148,6 @@ def analyze_frame(image):
     return image, df_angles
 
 def process_video(video_path):
-    # 파일 존재 여부 확인
     if not os.path.exists(video_path):
         print(f"Error: video file does not exist: {video_path}")
         return None, None
@@ -172,11 +160,9 @@ def process_video(video_path):
     frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     fps = int(cap.get(cv2.CAP_PROP_FPS))
     
-    # Set up the progressbar
     widgets = ["--[INFO]-- Analyzing Video: ", progressbar.Percentage(), " ",
                progressbar.Bar(), " ", progressbar.ETA()]
-    pbar = progressbar.ProgressBar(maxval=frame_count,
-                                   widgets=widgets).start()
+    pbar = progressbar.ProgressBar(maxval=frame_count, widgets=widgets).start()
     
     impact_frame = None
     for frame_index in range(frame_count):
@@ -184,6 +170,7 @@ def process_video(video_path):
         if not ret:
             break
 
+        frame = cv2.resize(frame, (640, 480))  # 해상도 줄이기
         height, width = frame.shape[:2]
         inpBlob = cv2.dnn.blobFromImage(frame, 1.0 / 255, (width, height), (0, 0, 0), swapRB=False, crop=False)
         net.setInput(inpBlob)
@@ -229,15 +216,14 @@ def save_results_to_json(df_angles, output_path="/app/openpose/result.json"):
         json.dump(results, f, ensure_ascii=False, indent=4)
 
 def calculate_scores(df_angles):
-    # 각 부위별 점수를 계산합니다.
     scores = []
-    max_angle_deviation = 1  # 한치의 오차라도 있으면 점수를 깎음
+    max_angle_deviation = 1
     for index, row in df_angles.iterrows():
-        if row['IsCorrect'] == 1:  # Correct한 경우
+        if row['IsCorrect'] == 1:
             scores.append(100)
         else:
-            angle_deviation = abs(row['Angle'] - 90)  # 90도와의 편차
-            score = max(0, 100 - (angle_deviation / max_angle_deviation) * 100)  # 오차가 1도당 100점 감점
+            angle_deviation = abs(row['Angle'] - 90)
+            score = max(0, 100 - (angle_deviation / max_angle_deviation) * 100)
             scores.append(score)
     df_angles['Score'] = scores
     total_score = sum(scores) / len(scores)
@@ -251,13 +237,9 @@ def save_results_to_html(image, df_angles, feedback_list, output_path="/app/open
     _, buffer = cv2.imencode('.jpg', image)
     img_str = base64.b64encode(buffer).decode('utf-8')
 
-    # 현재 날짜를 가져오기
     current_date = datetime.now().strftime("%Y-%m-%d")
-
-    # 점수 계산
     total_score = calculate_scores(df_angles)
 
-    # 도넛 차트 생성
     fig, ax = plt.subplots(figsize=(4, 4))
     wedges, texts, autotexts = ax.pie([total_score, 100-total_score], startangle=90, colors=['#007bff', '#d3d3d3'],
                                       counterclock=False, wedgeprops=dict(width=0.3, edgecolor='white'), autopct='%1.1f%%')
@@ -386,7 +368,7 @@ if result_image is not None and result_df is not None:
 
             elif row['From'] == "Chest" and row['To'] == "RHip":
                 mean_angle = 99.894308
-                if current_angle < mean_angle:
+                if current_angle < mean_angle):
                     feedback_list.append(f"허리를 좀 더 숙이시오.")
                 else:
                     feedback_list.append(f"허리를 좀 더 피시오.")
