@@ -223,7 +223,7 @@ def save_results_to_html(image, df_angles, feedback_list, output_path="/app/open
                                       counterclock=False, wedgeprops=dict(width=0.3, edgecolor='white'), autopct='%1.1f%%')
     plt.setp(autotexts, size=12, weight="bold", color="white")
     ax.text(0, 0, f"{total_score:.2f}/100", ha='center', va='center', fontsize=20, color='black')
-    plt.savefig('/app/openpose/score_chart.png', bbox_inches='tight', pad_inches=0.1, dpi=100)
+    plt.savefig('/app/openpose/score_chart.png', bbox_inches='tight', pad_inches=0.1, dpi=200)
     plt.close(fig)
 
     with open('/app/openpose/score_chart.png', 'rb') as image_file:
@@ -232,6 +232,7 @@ def save_results_to_html(image, df_angles, feedback_list, output_path="/app/open
     html_template = """
     <html>
     <head>
+        <meta charset="UTF-8">
         <title>자세 분석 결과</title>
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
         <style>
@@ -311,6 +312,7 @@ def save_results_to_html(image, df_angles, feedback_list, output_path="/app/open
         f.write(html_content)
         
     shutil.move(temp_output_path, output_path)
+
 
 video_path = sys.argv[1]
 result_image, result_df = process_video(video_path)
