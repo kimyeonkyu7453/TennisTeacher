@@ -4,43 +4,72 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Upload and Analyze Page</title>
-    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: auto;
+        }
+        .video-wrapper {
+            margin-bottom: 20px;
+        }
+        .upload-section {
+            margin-bottom: 20px;
+        }
+        .warning {
+            color: red;
+        }
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            .video-wrapper iframe {
+                height: 200px;
+            }
+            #preview {
+                height: 200px;
+            }
+        }
+    </style>
 </head>
 <body>
     <div class="container">
         <section class="upload">
-            <h2>UPLOAD & FEEDBACK</h2>
+            <h2 class="text-center">UPLOAD & FEEDBACK</h2>
             <div class="video-wrapper">
                 <iframe width="100%" height="315" src="https://www.youtube.com/embed/8vwI7Sihv_Y" frameborder="0" allowfullscreen></iframe>
             </div>
-            <p>-업로드 예시</p>
-            <div class="upload-section">
+            <p class="text-center">-업로드 예시</p>
+            <div class="upload-section text-center">
                 <video id="preview" width="100%" height="315" controls style="display: none;"></video>
-                <input type="file" id="fileInput" accept="video/*">
-                <progress id="uploadProgressBar" value="0" max="100" style="width: 100%; display: none;"></progress>
-                <p id="uploadProgressText" style="display: none;">진행률: 0%</p>
-                <button id="uploadButton">업로드</button>
+                <input type="file" id="fileInput" accept="video/*" class="form-control mt-3">
+                <progress id="uploadProgressBar" value="0" max="100" style="width: 100%; display: none;" class="mt-3"></progress>
+                <p id="uploadProgressText" style="display: none;" class="mt-2">진행률: 0%</p>
+                <button id="uploadButton" class="btn btn-primary mt-3">업로드</button>
             </div>
-            <h2></h2>
-            <select id="videoSelect">
+            <select id="videoSelect" class="form-select mt-3">
                 <option value="">영상 선택</option>
             </select>
-            <button id="analyzeButton">분석하기</button>
-            <progress id="analysisProgressBar" value="0" max="100" style="width: 100%; display: none;"></progress>
-            <p id="analysisProgressText" style="display: none;">진행률: 0%</p>
-            <button id="checkResultButton" style="display: none;">분석결과 확인하기</button>
-            <img id="resultImage" style="display: none; width: 100%;" />
-            <button id="backButton">뒤로가기</button>
+            <button id="analyzeButton" class="btn btn-success mt-3">분석하기</button>
+            <progress id="analysisProgressBar" value="0" max="100" style="width: 100%; display: none;" class="mt-3"></progress>
+            <p id="analysisProgressText" style="display: none;" class="mt-2">진행률: 0%</p>
+            <button id="checkResultButton" style="display: none;" class="btn btn-info mt-3">분석결과 확인하기</button>
+            <img id="resultImage" style="display: none; width: 100%;" class="mt-3" />
+            <button id="backButton" class="btn btn-secondary mt-3">뒤로가기</button>
         </section>
-        <footer>
+        <footer class="mt-5">
             <p class="warning">주의 사항</p>
             <p class="warning">1. 이 프로그램은 오른손잡이를 기준으로 제작되었습니다.</p>
             <p class="warning">2. 이 프로그램은 세미 웨스턴 그립만 지원합니다.</p>
             <p class="warning">3. 영상은 반드시 사용자의 오른쪽을 촬영해야 하며, 신체 전부가 영상에 포함 되어야 합니다.</p>
             <p class="warning">4. 가장 마지막에 업로드한 영상은 영상선택의 가장 아래 영상입니다.</p>
-            <ul></ul>
         </footer>
     </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="main.js"></script>
 </body>
 </html>
