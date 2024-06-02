@@ -11,7 +11,6 @@ import warnings
 from jinja2 import Template
 from datetime import datetime
 import matplotlib.pyplot as plt
-import progressbar
 
 warnings.filterwarnings("ignore", category=UserWarning, module="sklearn")
 
@@ -78,13 +77,6 @@ label_encoder_to = joblib.load(label_encoder_to_path)
 model_path = os.path.join(pose_lib_path, 'tennis_pose_model.pkl')
 model = joblib.load(model_path)
 
-def is_perpendicular(p1, p2, p3, p4):
-    vec_p1p2 = np.array(p1) - np.array(p2)
-    vec_p3p4 = np.array(p3) - np.array(p4)
-    angle = np.arccos(np.dot(vec_p1p2, vec_p3p4) / (np.linalg.norm(vec_p1p2) * np.linalg.norm(vec_p3p4)))
-    angle_deg = np.degrees(angle)
-    return 30 <= angle_deg <= 50 or 310 <= angle_deg <= 330
-
 def analyze_frame(image):
     height, width = image.shape[:2]
     max_height = 500
@@ -148,6 +140,7 @@ def analyze_frame(image):
     return image, df_angles
 
 def process_video(video_path):
+    # 파일 존재 여부 확인
     if not os.path.exists(video_path):
         print(f"Error: video file does not exist: {video_path}")
         return None, None
@@ -159,43 +152,23 @@ def process_video(video_path):
 
     frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     fps = int(cap.get(cv2.CAP_PROP_FPS))
-    
-    widgets = ["--[INFO]-- Analyzing Video: ", progressbar.Percentage(), " ",
-               progressbar.Bar(), " ", progressbar.ETA()]
-    pbar = progressbar.ProgressBar(maxval=frame_count, widgets=widgets).start()
-    
+
+    impact_frame_index = frame_count // 2
+
+    current_frame_index = 0
     impact_frame = None
-    for frame_index in range(frame_count):
+
+    while cap.isOpened():
         ret, frame = cap.read()
         if not ret:
             break
 
-        frame = cv2.resize(frame, (640, 480))  # 해상도 줄이기
-        height, width = frame.shape[:2]
-        inpBlob = cv2.dnn.blobFromImage(frame, 1.0 / 255, (width, height), (0, 0, 0), swapRB=False, crop=False)
-        net.setInput(inpBlob)
-        output = net.forward()
+        if current_frame_index == impact_frame_index:
+            impact_frame = frame
+            break
 
-        points = []
-        for i in range(len(BODY_PARTS) - 1):
-            probMap = output[0, i, :, :]
-            minVal, prob, minLoc, point = cv2.minMaxLoc(probMap)
-            x = (width * point[0]) / output.shape[3]
-            y = (height * point[1]) / output.shape[2]
+        current_frame_index += 1
 
-            if prob > 0.1:
-                points.append((int(x), int(y)))
-            else:
-                points.append(None)
-
-        if points[2] and points[3] and points[1] and points[14]:
-            if is_perpendicular(points[2], points[3], points[1], points[14]) and points[3][0] > points[1][0]:
-                impact_frame = frame
-                break
-
-        pbar.update(frame_index + 1)
-
-    pbar.finish()
     cap.release()
 
     if impact_frame is not None:
@@ -216,14 +189,15 @@ def save_results_to_json(df_angles, output_path="/app/openpose/result.json"):
         json.dump(results, f, ensure_ascii=False, indent=4)
 
 def calculate_scores(df_angles):
+    # 각 부위별 점수를 계산합니다.
     scores = []
-    max_angle_deviation = 1
+    max_angle_deviation = 1  # 한치의 오차라도 있으면 점수를 깎음
     for index, row in df_angles.iterrows():
-        if row['IsCorrect'] == 1:
+        if row['IsCorrect'] == 1:  # Correct한 경우
             scores.append(100)
         else:
-            angle_deviation = abs(row['Angle'] - 90)
-            score = max(0, 100 - (angle_deviation / max_angle_deviation) * 100)
+            angle_deviation = abs(row['Angle'] - 90)  # 90도와의 편차
+            score = max(0, 100 - (angle_deviation / max_angle_deviation) * 100)  # 오차가 1도당 100점 감점
             scores.append(score)
     df_angles['Score'] = scores
     total_score = sum(scores) / len(scores)
@@ -237,9 +211,13 @@ def save_results_to_html(image, df_angles, feedback_list, output_path="/app/open
     _, buffer = cv2.imencode('.jpg', image)
     img_str = base64.b64encode(buffer).decode('utf-8')
 
+    # 현재 날짜를 가져오기
     current_date = datetime.now().strftime("%Y-%m-%d")
+
+    # 점수 계산
     total_score = calculate_scores(df_angles)
 
+    # 도넛 차트 생성
     fig, ax = plt.subplots(figsize=(4, 4))
     wedges, texts, autotexts = ax.pie([total_score, 100-total_score], startangle=90, colors=['#007bff', '#d3d3d3'],
                                       counterclock=False, wedgeprops=dict(width=0.3, edgecolor='white'), autopct='%1.1f%%')
@@ -345,6 +323,7 @@ def save_results_to_html(image, df_angles, feedback_list, output_path="/app/open
         
     shutil.move(temp_output_path, output_path)
 
+
 video_path = sys.argv[1]
 result_image, result_df = process_video(video_path)
 
@@ -361,63 +340,63 @@ if result_image is not None and result_df is not None:
 
             if row['From'] == "Chest" and row['To'] == "LHip":
                 mean_angle = 77.886546
-                if current_angle < mean_angle:
+                if (current_angle < mean_angle):
                     feedback_list.append(f"허리를 좀 더 숙이시오.")
                 else:
                     feedback_list.append(f"허리를 좀 더 피시오.")
 
             elif row['From'] == "Chest" and row['To'] == "RHip":
                 mean_angle = 99.894308
-                if current_angle < mean_angle:
+                if (current_angle < mean_angle):
                     feedback_list.append(f"허리를 좀 더 숙이시오.")
                 else:
                     feedback_list.append(f"허리를 좀 더 피시오.")
 
             elif row['From'] == "LHip" and row['To'] == "LKnee":
                 mean_angle = 75.916891
-                if current_angle < mean_angle:
+                if (current_angle < mean_angle):
                     feedback_list.append(f"왼쪽 무릎을 좀 더 피시오.")
                 else:
-                    feedback_list.append(f"왼쪽 무릎을 좀 더 구부리시오.")
+                    feedback_list.append(f" 왼쪽 무릎을 좀 더 구부리시오.")
 
             elif row['From'] == "LKnee" and row['To'] == "LAnkle":
                 mean_angle = 104.983467
-                if current_angle < mean_angle:
+                if (current_angle < mean_angle):
                     feedback_list.append(f"왼쪽 무릎을 좀 더 구부리시오.")
                 else:
                     feedback_list.append(f"왼쪽 무릎을 좀 더 피시오.")
 
             elif row['From'] == "Neck" and row['To'] == "RShoulder":
                 mean_angle = 115.946267
-                if current_angle < mean_angle:
+                if (current_angle < mean_angle):
                     feedback_list.append(f"오른쪽 어깨를 좀 더 피시오.")
                 else:
                     feedback_list.append(f"오른쪽 어깨를 좀 더 접으시오.")
 
             elif row['From'] == "RElbow" and row['To'] == "RWrist":
                 mean_angle = 13.692950
-                if current_angle < mean_angle:
+                if (current_angle < mean_angle):
                     feedback_list.append(f"오른쪽 손목을 좀 더 내리십시오.")
                 else:
                     feedback_list.append(f"오른쪽 손목을 좀 더 올리십시오.")
 
             elif row['From'] == "RHip" and row['To'] == "RKnee":
                 mean_angle = 94.449991
-                if current_angle < mean_angle:
+                if (current_angle < mean_angle):
                     feedback_list.append(f"오른쪽 무릎을 좀 더 피시오.")
                 else:
                     feedback_list.append(f"오른쪽 무릎을 좀 더 구부리시오.")
 
             elif row['From'] == "RKnee" and row['To'] == "RAnkle":
                 mean_angle = 124.503426
-                if current_angle < mean_angle:
+                if (current_angle < mean_angle):
                     feedback_list.append(f"오른쪽 무릎을 좀 더 구부리시오.")
                 else:
                     feedback_list.append(f"오른쪽 무릎을 좀 더 피시오.")
 
             elif row['From'] == "RShoulder" and row['To'] == "RElbow":
                 mean_angle = 52.455323
-                if current_angle < mean_angle:
+                if (current_angle < mean_angle):
                     feedback_list.append(f"오른쪽 팔을 좀 더 뒤로 당기십시오.")
                 else:
                     feedback_list.append(f"오른쪽 팔을 좀 더 앞으로 당기십시오.")
