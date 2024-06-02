@@ -44,9 +44,6 @@ RUN mkdir -p /app/openpose/pose_lib && chmod -R 777 /app/openpose
 COPY analyze_video.py /app/openpose/analyze_video.py
 COPY openpose/pose_lib /app/openpose/pose_lib/
 
-# resize_video.py 파일 복사
-COPY resize_video.py /app/openpose/resize_video.py
-
 # public 디렉토리 복사 및 권한 설정
 COPY public /app/public/
 RUN chown -R python:python /app/public && chmod -R 777 /app/public
