@@ -1,38 +1,33 @@
+import sys
 import os
 import cv2
 import pandas as pd
 import numpy as np
-import math
 import joblib
-import sys
-import json
-import shutil
-import warnings
+import math
 from jinja2 import Template
 from datetime import datetime
 import matplotlib.pyplot as plt
+import json
+import shutil
 
-warnings.filterwarnings("ignore", category=UserWarning, module="sklearn")
+# Load the pre-trained OpenPose model
+pose_lib_path = "/app/openpose/pose_lib/"
+prototxt_path = os.path.join(pose_lib_path, "pose_deploy_linevec.prototxt")
+caffemodel_path = os.path.join(pose_lib_path, "pose_iter_160000.caffemodel")
 
-# Ensure the public directory exists
-public_dir = "/app/public"
-if not os.path.exists(public_dir):
-    os.makedirs(public_dir, mode=0o777)
+net = cv2.dnn.readNetFromCaffe(prototxt_path, caffemodel_path)
 
-def combine_files(input_pattern='segment_*', output_path='pose_iter_160000.caffemodel'):
-    import glob
-    if os.path.exists(output_path):
-        os.remove(output_path)  # 기존 파일 삭제
-    with open(output_path, 'wb') as output_file:
-        for file_name in sorted(glob.glob(input_pattern)):
-            with open(file_name, 'rb') as input_file:
-                output_file.write(input_file.read())
-    os.chmod(output_path, 0o777)  # 파일 권한 설정
+# Load label encoders and the model for prediction
+label_encoder_from_path = os.path.join(pose_lib_path, 'label_encoder_from.pkl')
+label_encoder_to_path = os.path.join(pose_lib_path, 'label_encoder_to.pkl')
+label_encoder_from = joblib.load(label_encoder_from_path)
+label_encoder_to = joblib.load(label_encoder_to_path)
 
-# 분할된 파일 결합
-combine_files(input_pattern='/app/openpose/pose_lib/segment_*', output_path='/app/openpose/pose_lib/pose_iter_160000.caffemodel')
+model_path = os.path.join(pose_lib_path, 'tennis_pose_model.pkl')
+model = joblib.load(model_path)
 
-# MPII에서 각 파트 번호, 선으로 연결될 POSE_PAIRS
+# Define body parts and pose pairs
 BODY_PARTS = {"Head": 0, "Neck": 1, "RShoulder": 2, "RElbow": 3, "RWrist": 4,
               "LShoulder": 5, "LElbow": 6, "LWrist": 7, "RHip": 8, "RKnee": 9,
               "RAnkle": 10, "LHip": 11, "LKnee": 12, "LAnkle": 13, "Chest": 14,
@@ -62,21 +57,16 @@ part_names_korean = {
     "Background": "배경"
 }
 
-# 경로 수정 (Linux 경로 사용)
-pose_lib_path = "/app/openpose/pose_lib/"
-prototxt_path = os.path.join(pose_lib_path, "pose_deploy_linevec.prototxt")
-caffemodel_path = os.path.join(pose_lib_path, "pose_iter_160000.caffemodel")
+def is_perpendicular(p1, p2, p3, p4):
+    vec_p1p2 = np.array(p1) - np.array(p2)
+    vec_p3p4 = np.array(p3) - np.array(p4)
+    
+    angle = np.arccos(np.dot(vec_p1p2, vec_p3p4) / (np.linalg.norm(vec_p1p2) * np.linalg.norm(vec_p3p4)))
+    angle_deg = np.degrees(angle)
+    
+    return 80 <= angle_deg <= 100 or 260 <= angle_deg <= 280
 
-net = cv2.dnn.readNetFromCaffe(prototxt_path, caffemodel_path)
-
-label_encoder_from_path = os.path.join(pose_lib_path, 'label_encoder_from.pkl')
-label_encoder_to_path = os.path.join(pose_lib_path, 'label_encoder_to.pkl')
-label_encoder_from = joblib.load(label_encoder_from_path)
-label_encoder_to = joblib.load(label_encoder_to_path)
-
-model_path = os.path.join(pose_lib_path, 'tennis_pose_model.pkl')
-model = joblib.load(model_path)
-
+# Analyze a single frame using OpenPose
 def analyze_frame(image):
     height, width = image.shape[:2]
     max_height = 500
@@ -139,8 +129,9 @@ def analyze_frame(image):
 
     return image, df_angles
 
+# Process the entire video to find the impact frame and analyze it
 def process_video(video_path):
-    # 파일 존재 여부 확인
+    # Check if the video file exists
     if not os.path.exists(video_path):
         print(f"Error: video file does not exist: {video_path}")
         return None, None
@@ -153,8 +144,6 @@ def process_video(video_path):
     frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     fps = int(cap.get(cv2.CAP_PROP_FPS))
 
-    impact_frame_index = frame_count // 2
-
     current_frame_index = 0
     impact_frame = None
 
@@ -163,9 +152,32 @@ def process_video(video_path):
         if not ret:
             break
 
-        if current_frame_index == impact_frame_index:
-            impact_frame = frame
-            break
+        frameHeight, frameWidth = frame.shape[:2]
+        inpBlob = cv2.dnn.blobFromImage(frame, 1.0 / 255, (368, 368), (0, 0, 0), swapRB=False, crop=False)
+        net.setInput(inpBlob)
+        output = net.forward()
+        H = output.shape[2]
+        W = output.shape[3]
+
+        points = []
+
+        for i in range(15):
+            probMap = output[0, i, :, :]
+            minVal, prob, minLoc, point = cv2.minMaxLoc(probMap)
+            x = (frameWidth * point[0]) / W
+            y = (frameHeight * point[1]) / H
+
+            if prob > 0.1:
+                points.append((int(x), int(y)))
+            else:
+                points.append((0, 0))
+
+        if points[2] != (0, 0) and points[3] != (0, 0) and points[1] != (0, 0) and points[14] != (0, 0):
+            if is_perpendicular(points[2], points[3], points[1], points[14]):
+                if points[3][0] > points[1][0]:
+                    impact_frame = frame
+                    print(f"Captured impact frame at {current_frame_index}")
+                    break
 
         current_frame_index += 1
 
@@ -174,35 +186,37 @@ def process_video(video_path):
     if impact_frame is not None:
         result_image, result_df = analyze_frame(impact_frame)
         if result_df is not None and 'IsCorrect' in result_df.columns:
-            print(result_df.head())  # 데이터프레임 내용 출력
+            print(result_df.head())  # Print dataframe content
             return result_image, result_df
         else:
-            print("result_df가 제대로 생성되지 않았거나 IsCorrect 열이 존재하지 않습니다.")
+            print("result_df was not created correctly or 'IsCorrect' column is missing.")
             return None, None
     else:
-        print("임팩트 지점 프레임을 추출하지 못했습니다.")
+        print("Failed to extract impact frame.")
         return None, None
 
+# Save results to JSON
 def save_results_to_json(df_angles, output_path="/app/openpose/result.json"):
     results = df_angles.to_dict(orient='records')
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(results, f, ensure_ascii=False, indent=4)
 
+# Calculate scores based on angle correctness
 def calculate_scores(df_angles):
-    # 각 부위별 점수를 계산합니다.
     scores = []
-    max_angle_deviation = 1  # 한치의 오차라도 있으면 점수를 깎음
+    max_angle_deviation = 1
     for index, row in df_angles.iterrows():
-        if row['IsCorrect'] == 1:  # Correct한 경우
+        if row['IsCorrect'] == 1:
             scores.append(100)
         else:
-            angle_deviation = abs(row['Angle'] - 90)  # 90도와의 편차
-            score = max(0, 100 - (angle_deviation / max_angle_deviation) * 100)  # 오차가 1도당 100점 감점
+            angle_deviation = abs(row['Angle'] - 90)
+            score = max(0, 100 - (angle_deviation / max_angle_deviation) * 100)
             scores.append(score)
     df_angles['Score'] = scores
     total_score = sum(scores) / len(scores)
     return total_score
 
+# Save results to HTML
 def save_results_to_html(image, df_angles, feedback_list, output_path="/app/openpose/result.html"):
     import base64
     from io import BytesIO
@@ -211,13 +225,10 @@ def save_results_to_html(image, df_angles, feedback_list, output_path="/app/open
     _, buffer = cv2.imencode('.jpg', image)
     img_str = base64.b64encode(buffer).decode('utf-8')
 
-    # 현재 날짜를 가져오기
     current_date = datetime.now().strftime("%Y-%m-%d")
 
-    # 점수 계산
     total_score = calculate_scores(df_angles)
 
-    # 도넛 차트 생성
     fig, ax = plt.subplots(figsize=(4, 4))
     wedges, texts, autotexts = ax.pie([total_score, 100-total_score], startangle=90, colors=['#007bff', '#d3d3d3'],
                                       counterclock=False, wedgeprops=dict(width=0.3, edgecolor='white'), autopct='%1.1f%%')
@@ -313,88 +324,91 @@ def save_results_to_html(image, df_angles, feedback_list, output_path="/app/open
         
     shutil.move(temp_output_path, output_path)
 
+def main(video_path):
+    result_image, result_df = process_video(video_path)
 
-video_path = sys.argv[1]
-result_image, result_df = process_video(video_path)
+    feedback_list = []
 
-feedback_list = []
+    if result_image is not None and result_df is not None:
+        save_results_to_json(result_df, output_path="/app/openpose/result.json")
+        incorrect_poses = result_df[result_df['IsCorrect'] == 0]
+        if not incorrect_poses.empty:
+            for index, row in incorrect_poses.iterrows():
+                from_part_korean = part_names_korean[row['From']]
+                to_part_korean = part_names_korean[row['To']]
+                current_angle = row['Angle']
 
-if result_image is not None and result_df is not None:
-    save_results_to_json(result_df, output_path="/app/openpose/result.json")
-    incorrect_poses = result_df[result_df['IsCorrect'] == 0]
-    if not incorrect_poses.empty:
-        for index, row in incorrect_poses.iterrows():
-            from_part_korean = part_names_korean[row['From']]
-            to_part_korean = part_names_korean[row['To']]
-            current_angle = row['Angle']
+                if row['From'] == "Chest" and row['To'] == "LHip":
+                    mean_angle = 77.886546
+                    if (current_angle < mean_angle):
+                        feedback_list.append(f"허리를 좀 더 숙이시오.")
+                    else:
+                        feedback_list.append(f"허리를 좀 더 피시오.")
 
-            if row['From'] == "Chest" and row['To'] == "LHip":
-                mean_angle = 77.886546
-                if (current_angle < mean_angle):
-                    feedback_list.append(f"허리를 좀 더 숙이시오.")
-                else:
-                    feedback_list.append(f"허리를 좀 더 피시오.")
+                elif row['From'] == "Chest" and row['To'] == "RHip":
+                    mean_angle = 99.894308
+                    if (current_angle < mean_angle):
+                        feedback_list.append(f"허리를 좀 더 숙이시오.")
+                    else:
+                        feedback_list.append(f"허리를 좀 더 피시오.")
 
-            elif row['From'] == "Chest" and row['To'] == "RHip":
-                mean_angle = 99.894308
-                if (current_angle < mean_angle):
-                    feedback_list.append(f"허리를 좀 더 숙이시오.")
-                else:
-                    feedback_list.append(f"허리를 좀 더 피시오.")
+                elif row['From'] == "LHip" and row['To'] == "LKnee":
+                    mean_angle = 75.916891
+                    if (current_angle < mean_angle):
+                        feedback_list.append(f"왼쪽 무릎을 좀 더 피시오.")
+                    else:
+                        feedback_list.append(f" 왼쪽 무릎을 좀 더 구부리시오.")
 
-            elif row['From'] == "LHip" and row['To'] == "LKnee":
-                mean_angle = 75.916891
-                if (current_angle < mean_angle):
-                    feedback_list.append(f"왼쪽 무릎을 좀 더 피시오.")
-                else:
-                    feedback_list.append(f" 왼쪽 무릎을 좀 더 구부리시오.")
+                elif row['From'] == "LKnee" and row['To'] == "LAnkle":
+                    mean_angle = 104.983467
+                    if (current_angle < mean_angle):
+                        feedback_list.append(f"왼쪽 무릎을 좀 더 구부리시오.")
+                    else:
+                        feedback_list.append(f"왼쪽 무릎을 좀 더 피시오.")
 
-            elif row['From'] == "LKnee" and row['To'] == "LAnkle":
-                mean_angle = 104.983467
-                if (current_angle < mean_angle):
-                    feedback_list.append(f"왼쪽 무릎을 좀 더 구부리시오.")
-                else:
-                    feedback_list.append(f"왼쪽 무릎을 좀 더 피시오.")
+                elif row['From'] == "Neck" and row['To'] == "RShoulder":
+                    mean_angle = 115.946267
+                    if (current_angle < mean_angle):
+                        feedback_list.append(f"오른쪽 어깨를 좀 더 피시오.")
+                    else:
+                        feedback_list.append(f"오른쪽 어깨를 좀 더 접으시오.")
 
-            elif row['From'] == "Neck" and row['To'] == "RShoulder":
-                mean_angle = 115.946267
-                if (current_angle < mean_angle):
-                    feedback_list.append(f"오른쪽 어깨를 좀 더 피시오.")
-                else:
-                    feedback_list.append(f"오른쪽 어깨를 좀 더 접으시오.")
+                elif row['From'] == "RElbow" and row['To'] == "RWrist":
+                    mean_angle = 13.692950
+                    if (current_angle < mean_angle):
+                        feedback_list.append(f"오른쪽 손목을 좀 더 내리십시오.")
+                    else:
+                        feedback_list.append(f"오른쪽 손목을 좀 더 올리십시오.")
 
-            elif row['From'] == "RElbow" and row['To'] == "RWrist":
-                mean_angle = 13.692950
-                if (current_angle < mean_angle):
-                    feedback_list.append(f"오른쪽 손목을 좀 더 내리십시오.")
-                else:
-                    feedback_list.append(f"오른쪽 손목을 좀 더 올리십시오.")
+                elif row['From'] == "RHip" and row['To'] == "RKnee":
+                    mean_angle = 94.449991
+                    if (current_angle < mean_angle):
+                        feedback_list.append(f"오른쪽 무릎을 좀 더 피시오.")
+                    else:
+                        feedback_list.append(f"오른쪽 무릎을 좀 더 구부리시오.")
 
-            elif row['From'] == "RHip" and row['To'] == "RKnee":
-                mean_angle = 94.449991
-                if (current_angle < mean_angle):
-                    feedback_list.append(f"오른쪽 무릎을 좀 더 피시오.")
-                else:
-                    feedback_list.append(f"오른쪽 무릎을 좀 더 구부리시오.")
+                elif row['From'] == "RKnee" and row['To'] == "RAnkle":
+                    mean_angle = 124.503426
+                    if (current_angle < mean_angle):
+                        feedback_list.append(f"오른쪽 무릎을 좀 더 구부리시오.")
+                    else:
+                        feedback_list.append(f"오른쪽 무릎을 좀 더 피시오.")
 
-            elif row['From'] == "RKnee" and row['To'] == "RAnkle":
-                mean_angle = 124.503426
-                if (current_angle < mean_angle):
-                    feedback_list.append(f"오른쪽 무릎을 좀 더 구부리시오.")
-                else:
-                    feedback_list.append(f"오른쪽 무릎을 좀 더 피시오.")
+                elif row['From'] == "RShoulder" and row['To'] == "RElbow":
+                    mean_angle = 52.455323
+                    if (current_angle < mean_angle):
+                        feedback_list.append(f"오른쪽 팔을 좀 더 뒤로 당기십시오.")
+                    else:
+                        feedback_list.append(f"오른쪽 팔을 좀 더 앞으로 당기십시오.")
+        else:
+            feedback_list.append("자세가 완벽합니다!")
 
-            elif row['From'] == "RShoulder" and row['To'] == "RElbow":
-                mean_angle = 52.455323
-                if (current_angle < mean_angle):
-                    feedback_list.append(f"오른쪽 팔을 좀 더 뒤로 당기십시오.")
-                else:
-                    feedback_list.append(f"오른쪽 팔을 좀 더 앞으로 당기십시오.")
+        save_results_to_html(result_image, result_df, feedback_list, output_path="/app/openpose/result.html")
+        print("분석 결과가 result.json 및 result.html 파일에 저장되었습니다.")
+        shutil.copyfile("/app/openpose/result.html", "/app/public/result.html")
     else:
-        feedback_list.append("자세가 완벽합니다!")
+        print("임팩트 지점 프레임을 추출하지 못했습니다.")
 
-    save_results_to_html(result_image, result_df, feedback_list, output_path="/app/openpose/result.html")
-    print("분석 결과가 result.json 및 result.html 파일에 저장되었습니다.")
-    shutil.copyfile("/app/openpose/result.html", "/app/public/result.html")
-else:
-    print("임팩트 지점 프레임을 추출하지 못했습니다.")
+if __name__ == "__main__":
+    video_path = sys.argv[1]
+    main(video_path)
