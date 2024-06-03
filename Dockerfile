@@ -37,7 +37,9 @@ RUN npm install && npm cache clean --force
 COPY . .
 
 # 업로드 디렉토리 생성 및 권한 설정
-RUN mkdir -p /app/uploads /app/openpose/pose_lib
+RUN mkdir -p /app/uploads /app/openpose/pose_lib && \
+    chown -R python:python /app/uploads /app/openpose/pose_lib /app/public && \
+    chmod -R 777 /app/uploads /app/openpose/pose_lib /app/public
 
 # OpenPose 모델 파일 복사
 COPY openpose/pose_lib /app/openpose/pose_lib
