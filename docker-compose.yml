@@ -14,12 +14,6 @@ services:
       - OPENPOSE_DIR=/app/openpose
     depends_on:
       - python
-    command: >
-      sh -c "
-      chown -R python:python /app/uploads /app/openpose /app/public &&
-      chmod -R 777 /app/uploads /app/openpose /app/public &&
-      node /app/server.js
-      "
 
   python:
     image: python:3.9-slim
