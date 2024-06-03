@@ -27,7 +27,7 @@ RUN apt-get update && \
 
 # Python 패키지 설치
 RUN pip3 install --upgrade pip && \
-    pip3 install opencv-python-headless pandas numpy joblib scikit-learn Pillow matplotlib jinja2
+    pip3 install opencv-python pandas numpy joblib scikit-learn==1.4.2 Pillow matplotlib jinja2
 
 # 앱의 종속성 설치
 COPY package*.json ./
@@ -36,15 +36,14 @@ RUN npm install && npm cache clean --force
 # 애플리케이션 소스 코드 복사
 COPY . .
 
+# 업로드 디렉토리 생성 및 권한 설정
+RUN mkdir -p /app/uploads /app/openpose/pose_lib
+
 # OpenPose 모델 파일 복사
 COPY openpose/pose_lib /app/openpose/pose_lib
 
 # 분할된 파일을 합치는 스크립트 실행
 RUN python /app/openpose/pose_lib/combine_segments.py
-
-# 업로드 디렉토리 생성 및 권한 설정
-RUN mkdir -p /app/uploads /app/openpose/pose_lib && \
-    chmod -R 777 /app/uploads /app/openpose/pose_lib /app/public
 
 # public 디렉토리 복사
 COPY public /app/public/
