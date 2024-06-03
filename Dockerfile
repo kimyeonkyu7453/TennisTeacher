@@ -37,18 +37,23 @@ RUN npm install && npm cache clean --force
 COPY . .
 
 # 업로드 디렉토리 생성 및 권한 설정
-RUN mkdir -p /app/uploads /app/openpose/pose_lib && \
-    chown -R python:python /app/uploads /app/openpose/pose_lib /app/public && \
-    chmod -R 777 /app/uploads /app/openpose/pose_lib /app/public
+RUN mkdir -p /app/uploads /app/openpose/pose_lib
 
-# OpenPose 모델 파일 복사
+# OpenPose 모델 파일 복사 및 권한 설정
 COPY openpose/pose_lib /app/openpose/pose_lib
+RUN chown -R python:python /app/openpose/pose_lib && \
+    chmod -R 777 /app/openpose/pose_lib
 
 # 분할된 파일을 합치는 스크립트 실행
 RUN python /app/openpose/pose_lib/combine_segments.py
 
-# public 디렉토리 복사
+# public 디렉토리 복사 및 권한 설정
 COPY public /app/public/
+RUN chmod -R 777 /app/public
+
+# 업로드 디렉토리 권한 설정
+RUN chown -R python:python /app/uploads && \
+    chmod -R 777 /app/uploads
 
 # USER 변경은 반드시 pip 패키지 설치 스크립트 이후에 작성되어야 함
 USER python:python
