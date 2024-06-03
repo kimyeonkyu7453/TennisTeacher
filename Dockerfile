@@ -39,8 +39,12 @@ COPY . .
 # OpenPose 모델 파일 복사
 COPY openpose/pose_lib /app/openpose/pose_lib
 
+# 분할된 파일을 합치는 스크립트 복사 및 실행 권한 부여
+COPY combine_segments.py /app/openpose/combine_segments.py
+RUN chmod +x /app/openpose/combine_segments.py
+
 # 분할된 파일을 합치는 스크립트 실행
-RUN python /app/openpose/pose_lib/combine_segments.py
+RUN python /app/openpose/combine_segments.py
 
 # 업로드 디렉토리 생성 및 권한 설정
 RUN mkdir -p /app/uploads /app/openpose/pose_lib && \
